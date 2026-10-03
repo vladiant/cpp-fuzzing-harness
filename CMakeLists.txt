@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(cpp_fuzzing_harness
-  VERSION 0.1.1
+  VERSION 0.1.2
   DESCRIPTION "Dual-engine (libFuzzer + AFL++) fuzz harnesses for vva::SampleLib"
   LANGUAGES CXX)
 
