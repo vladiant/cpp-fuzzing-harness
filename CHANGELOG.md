@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-10-04
+
+Maintenance patch: fix AFL++ driver auto-discovery at CMake configure time.
+
+### Fixed
+
+- **AFL++ driver discovery** — configuring an AFL++ build
+  (`-DFUZZING_ENGINE=afl`) no longer fails with
+  `AFL++ driver (libAFLDriver.a / aflpp_driver.o) not found` when the afl++
+  package has installed the driver at a path already on the search list (e.g.
+  `/usr/lib/afl/libAFLDriver.a`). A variable-name collision in
+  `cmake/FuzzingEngine.cmake` made `find_library` reuse the pre-declared
+  (empty-but-set) `AFL_DRIVER_PATH` cache entry — the user-override variable —
+  and `find_library` skips searching when its result variable is already set,
+  so auto-discovery was silently bypassed. Discovery now resolves into distinct
+  internal variables, and `AFL_DRIVER_PATH` is kept solely as the explicit user
+  override (`-DAFL_DRIVER_PATH=...` still works). Search paths/names, the
+  object-file fallback, and all guard rails are unchanged; the libFuzzer path is
+  unaffected.
+
+### Known limitations
+
+- The AFL++ configure-time driver discovery is now fixed and verified by a mock
+  proof (auto-discovery resolves the driver; the `-DAFL_DRIVER_PATH=` override
+  still works) alongside the libFuzzer regression (UB target still crashes,
+  `checked_operation` clean, 11/11 decoder ctest) and the non-AFL-compiler guard
+  rail still firing. The full AFL++ **runtime** on a live GitHub Actions run has
+  not yet been re-confirmed post-fix and remains pending.
+
 ## [0.1.0] - 2026-10-04
 
 Initial release: complete libFuzzer + AFL++ + sanitizer fuzzing demo.
@@ -73,4 +102,5 @@ Initial release: complete libFuzzer + AFL++ + sanitizer fuzzing demo.
 - The AFL++ CI job's runtime has not yet been confirmed on a live GitHub Actions
   run.
 
+[0.1.1]: https://github.com/vladiant/cpp-fuzzing-harness/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vladiant/cpp-fuzzing-harness/releases/tag/v0.1.0

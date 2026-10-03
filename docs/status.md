@@ -1,10 +1,11 @@
 # Project Status — cpp-fuzzing-harness
 
-**SDLC stage:** Released — initial version tagged `v0.1.0`.
+**SDLC stage:** Maintenance patch ready to tag — `v0.1.1` (prev. released `v0.1.0`).
 **Date:** 2026-10-04
-**Version:** `0.1.0` (see `VERSION`; annotated tag `v0.1.0`).
-**Next step:** push the `v0.1.0` tag, then trigger the AFL++ CI job to
-confirm its runtime on a live GitHub Actions run.
+**Version:** `0.1.0` released; `0.1.1` patch pending version bump + tag (Release step).
+**Next step:** bump `VERSION` to `0.1.1` and tag `v0.1.1`, then trigger the
+AFL++ CI job to confirm its runtime on a live GitHub Actions run (configure-time
+driver discovery is now fixed; only live-runtime confirmation remains).
 
 ## Summary
 
@@ -14,6 +15,20 @@ Clang sanitizers (ASan+UBSan baseline; MSan experimental), applied to
 read-only via FetchContent at pinned commit
 `2154ed741002263b493eb15fd8c1a419117adfa5`). It complements upstream CI by
 adding the fuzzing dimension upstream lacks.
+
+## Maintenance patch (0.1.1)
+
+A post-release fix for the AFL++ CI configure failure: a variable-name
+collision in `cmake/FuzzingEngine.cmake` made `find_library` reuse the
+pre-declared (empty-but-set) `AFL_DRIVER_PATH` cache entry and silently skip
+auto-discovery, so configuring an AFL++ build failed with
+`AFL++ driver ... not found` even when the driver was present at a searched
+path. Discovery now resolves into distinct internal variables;
+`AFL_DRIVER_PATH` is kept solely as the explicit user override. Verified by a
+mock proof (auto-discovery resolves; `-DAFL_DRIVER_PATH=` override still works),
+the libFuzzer regression (UB crash, `checked_operation` clean, 11/11 decoder
+ctest), and the non-AFL-compiler guard rail still firing. The live AFL++
+runtime on GitHub Actions is still pending re-confirmation post-fix.
 
 ## What shipped
 
@@ -43,7 +58,8 @@ adding the fuzzing dimension upstream lacks.
 | Deterministic reproduction + non-mutating regression replay | ✅ Verified |
 | CMake guard rails (engine/sanitizer exclusivity) | ✅ Verified |
 | `fuzz-libfuzzer.yml` (build + unit + gated runs + regression) | ✅ Locally verified / CI-ready |
-| AFL++ CI job runtime (`fuzz-afl.yml`) | ⏳ Pending first live CI run (logic/syntax reviewed only) |
+| AFL++ configure-time driver discovery (`cmake/FuzzingEngine.cmake`) | ✅ Fixed in 0.1.1 (mock proof + libFuzzer regression) |
+| AFL++ CI job runtime (`fuzz-afl.yml`) | ⏳ Pending live CI re-confirmation post-fix |
 | MSan path | 🧪 Experimental (needs instrumented libc++; allowed-to-fail CI leg) |
 
 ## Known limitations
@@ -55,10 +71,13 @@ adding the fuzzing dimension upstream lacks.
 
 ## Note for the release tagger
 
-- Suggested tag: **`0.1.0`** — matches `project(... VERSION 0.1.0)` in
-  `CMakeLists.txt` and `version = "0.1.0"` in `conanfile.py`; it is the first
-  release of a complete, QA-passed feature set.
-- Move the `Unreleased` section of `CHANGELOG.md` under a `0.1.0` heading dated
-  on tag day, and update the comparison links.
-- Call out in release notes that the **AFL++ CI job is pending its first live
-  run** so expectations are set honestly.
+- Suggested tag: **`0.1.1`** — a maintenance patch over `0.1.0` (AFL++
+  configure-time driver discovery fix); bump `VERSION`,
+  `project(... VERSION 0.1.1)` in `CMakeLists.txt`, and `version = "0.1.1"` in
+  `conanfile.py` to match.
+- The `CHANGELOG.md` already carries a dated `0.1.1` section and comparison
+  link; no further CHANGELOG edits needed before tagging.
+- Call out in release notes that the AFL++ **configure-time** driver discovery
+  bug is fixed and verified (mock + libFuzzer regression), but the **live AFL++
+  runtime** on GitHub Actions is still pending re-confirmation — so expectations
+  are set honestly.
