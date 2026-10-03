@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-10-04
+
+Maintenance patch: fix the AFL++ CI findings-artifact upload.
+
+### Fixed
+
+- **AFL++ findings artifact upload** — the AFL++ CI job now completes through
+  artifact upload. With the 0.1.1 configure fix in place, the AFL++ campaign ran
+  end-to-end and rediscovered the expected UB crash for `basic_operation`, but
+  the `actions/upload-artifact@v4` step then failed: AFL++ names its crash files
+  with colons (e.g. `id:000000,sig:06,src:...`), and upload-artifact@v4 rejects
+  filenames containing `:` (NTFS-illegal). The workflow now tars the scratch
+  findings directory into a single valid-named archive
+  (`afl-findings-<target>.tgz`) and uploads that archive instead; the
+  colon-named crash files are preserved intact inside the tarball. The crash
+  assertion / pass-fail gate is unchanged.
+
+### Known limitations
+
+- The AFL++ CI job has now run end-to-end on GitHub Actions and rediscovered the
+  expected UB crash for `basic_operation`; with this release the findings
+  artifact also uploads successfully. The AFL++ engine is therefore demonstrated
+  working in CI — the earlier "runtime pending" caveat no longer applies.
+
 ## [0.1.1] - 2026-10-04
 
 Maintenance patch: fix AFL++ driver auto-discovery at CMake configure time.
@@ -102,5 +126,6 @@ Initial release: complete libFuzzer + AFL++ + sanitizer fuzzing demo.
 - The AFL++ CI job's runtime has not yet been confirmed on a live GitHub Actions
   run.
 
+[0.1.2]: https://github.com/vladiant/cpp-fuzzing-harness/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/vladiant/cpp-fuzzing-harness/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vladiant/cpp-fuzzing-harness/releases/tag/v0.1.0

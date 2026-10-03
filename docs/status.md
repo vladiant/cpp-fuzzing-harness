@@ -1,11 +1,12 @@
 # Project Status — cpp-fuzzing-harness
 
-**SDLC stage:** Maintenance patch ready to tag — `v0.1.1` (prev. released `v0.1.0`).
+**SDLC stage:** Maintenance patch ready to tag — `v0.1.2` (prev. released `v0.1.1`, `v0.1.0`).
 **Date:** 2026-10-04
-**Version:** `0.1.0` released; `0.1.1` patch pending version bump + tag (Release step).
-**Next step:** bump `VERSION` to `0.1.1` and tag `v0.1.1`, then trigger the
-AFL++ CI job to confirm its runtime on a live GitHub Actions run (configure-time
-driver discovery is now fixed; only live-runtime confirmation remains).
+**Version:** `0.1.1` released; `0.1.2` patch pending version bump + tag (Release step).
+**Next step:** bump `VERSION` to `0.1.2` and tag `v0.1.2`. The AFL++ CI job now
+runs end-to-end on GitHub Actions (rediscovers the expected UB crash) and the
+findings artifact uploads successfully; no runtime confirmation remains
+outstanding.
 
 ## Summary
 
@@ -15,6 +16,20 @@ Clang sanitizers (ASan+UBSan baseline; MSan experimental), applied to
 read-only via FetchContent at pinned commit
 `2154ed741002263b493eb15fd8c1a419117adfa5`). It complements upstream CI by
 adding the fuzzing dimension upstream lacks.
+
+## Maintenance patch (0.1.2)
+
+A post-release fix for the AFL++ CI findings-artifact upload. With the 0.1.1
+configure fix in place, the AFL++ campaign ran end-to-end on GitHub Actions and
+rediscovered the expected UB crash for `basic_operation`, but
+`actions/upload-artifact@v4` then failed: AFL++ names crash files with colons
+(e.g. `id:000000,sig:06,src:...`), which upload-artifact@v4 rejects as
+NTFS-illegal filenames. The workflow now tars the scratch findings directory
+into a single valid-named archive (`afl-findings-<target>.tgz`) and uploads that
+instead; the colon-named crash files are preserved intact inside the tarball.
+The crash assertion / pass-fail gate is unchanged. Net effect: the AFL++ engine
+is now demonstrated working in CI (ran + found the crash), with findings
+successfully exported.
 
 ## Maintenance patch (0.1.1)
 
@@ -59,7 +74,8 @@ runtime on GitHub Actions is still pending re-confirmation post-fix.
 | CMake guard rails (engine/sanitizer exclusivity) | ✅ Verified |
 | `fuzz-libfuzzer.yml` (build + unit + gated runs + regression) | ✅ Locally verified / CI-ready |
 | AFL++ configure-time driver discovery (`cmake/FuzzingEngine.cmake`) | ✅ Fixed in 0.1.1 (mock proof + libFuzzer regression) |
-| AFL++ CI job runtime (`fuzz-afl.yml`) | ⏳ Pending live CI re-confirmation post-fix |
+| AFL++ CI job runtime (`fuzz-afl.yml`) | ✅ Demonstrated in CI (0.1.1/0.1.2) — ran end-to-end, rediscovered `basic_operation` UB crash |
+| AFL++ findings artifact upload (`fuzz-afl.yml`) | ✅ Fixed in 0.1.2 (colon-named crashes tarred to `afl-findings-<target>.tgz` before upload) |
 | MSan path | 🧪 Experimental (needs instrumented libc++; allowed-to-fail CI leg) |
 
 ## Known limitations
@@ -67,17 +83,21 @@ runtime on GitHub Actions is still pending re-confirmation post-fix.
 - Signed-overflow UB does not surface at `int16_t` width (integer promotion
   widens to `int`); the UB consistently found is integer divide-by-zero. The
   harnesses still genuinely find real, reproducible UB.
-- AFL++ remains CI-only and runtime-unconfirmed.
+- AFL++ is CI-only; it has now run end-to-end on GitHub Actions and rediscovered
+  the expected UB crash for `basic_operation` (findings artifact exports cleanly
+  as of 0.1.2).
 
 ## Note for the release tagger
 
-- Suggested tag: **`0.1.1`** — a maintenance patch over `0.1.0` (AFL++
-  configure-time driver discovery fix); bump `VERSION`,
-  `project(... VERSION 0.1.1)` in `CMakeLists.txt`, and `version = "0.1.1"` in
+- Suggested tag: **`0.1.2`** — a maintenance patch over `0.1.1` (AFL++ CI
+  findings-artifact upload fix); bump `VERSION`,
+  `project(... VERSION 0.1.2)` in `CMakeLists.txt`, and `version = "0.1.2"` in
   `conanfile.py` to match.
-- The `CHANGELOG.md` already carries a dated `0.1.1` section and comparison
+- The `CHANGELOG.md` already carries a dated `0.1.2` section and comparison
   link; no further CHANGELOG edits needed before tagging.
-- Call out in release notes that the AFL++ **configure-time** driver discovery
-  bug is fixed and verified (mock + libFuzzer regression), but the **live AFL++
-  runtime** on GitHub Actions is still pending re-confirmation — so expectations
-  are set honestly.
+- Call out in release notes that the AFL++ CI job now runs end-to-end and
+  rediscovered the expected UB crash for `basic_operation`, and that the
+  findings-artifact upload failure (colon-named crash files rejected by
+  upload-artifact@v4) is fixed by archiving the findings dir into
+  `afl-findings-<target>.tgz` before upload — so the AFL++ engine is now
+  demonstrated working in CI.
