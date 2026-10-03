@@ -5,9 +5,9 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-10-04
 
-Initial feature set, staged for the upcoming **0.1.0** release (not yet tagged).
+Initial release: complete libFuzzer + AFL++ + sanitizer fuzzing demo.
 
 ### Added
 
@@ -73,4 +73,4 @@ Initial feature set, staged for the upcoming **0.1.0** release (not yet tagged).
 - The AFL++ CI job's runtime has not yet been confirmed on a live GitHub Actions
   run.
 
-[Unreleased]: https://github.com/vladiant/cpp-fuzzing-harness/commits/main
+[0.1.0]: https://github.com/vladiant/cpp-fuzzing-harness/releases/tag/v0.1.0
