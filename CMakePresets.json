@@ -1,0 +1,66 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "libfuzzer-asan-ubsan",
+      "displayName": "libFuzzer + ASan + UBSan (default)",
+      "description": "Primary acceptance path: clang-18 libFuzzer with ASan+UBSan.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-libfuzzer",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FUZZING_ENGINE": "libfuzzer",
+        "ENABLE_ASAN": "ON",
+        "ENABLE_UBSAN": "ON",
+        "ENABLE_MSAN": "OFF",
+        "BUILD_DECODER_TESTS": "ON"
+      }
+    },
+    {
+      "name": "afl-asan-ubsan",
+      "displayName": "AFL++ + ASan + UBSan (CI only)",
+      "description": "AFL++ engine. Requires afl-clang-fast++ and libAFLDriver.a.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-afl",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "afl-clang-fast++",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FUZZING_ENGINE": "afl",
+        "ENABLE_ASAN": "ON",
+        "ENABLE_UBSAN": "ON",
+        "ENABLE_MSAN": "OFF",
+        "BUILD_DECODER_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "libfuzzer-msan",
+      "displayName": "libFuzzer + MSan (optional / experimental)",
+      "description": "MemorySanitizer path (exclusive with ASan). Needs MSan libc++ for no false positives.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-msan",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FUZZING_ENGINE": "libfuzzer",
+        "ENABLE_ASAN": "OFF",
+        "ENABLE_UBSAN": "OFF",
+        "ENABLE_MSAN": "ON",
+        "BUILD_DECODER_TESTS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "libfuzzer-asan-ubsan", "configurePreset": "libfuzzer-asan-ubsan" },
+    { "name": "afl-asan-ubsan", "configurePreset": "afl-asan-ubsan" },
+    { "name": "libfuzzer-msan", "configurePreset": "libfuzzer-msan" }
+  ],
+  "testPresets": [
+    {
+      "name": "libfuzzer-asan-ubsan",
+      "configurePreset": "libfuzzer-asan-ubsan",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

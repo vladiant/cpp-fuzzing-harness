@@ -1,0 +1,6 @@
+# op-selector bytes for the multiplexed simple_calc_arith harness (design §5.2)
+# decode_op() reads one byte and masks the low two bits (0..3).
+op_add="\x00"
+op_sub="\x01"
+op_mul="\x02"
+op_div="\x03"

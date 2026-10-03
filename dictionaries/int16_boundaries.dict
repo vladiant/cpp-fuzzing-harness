@@ -1,0 +1,10 @@
+# int16 boundary little-endian encodings (design §5.2, FR-16)
+# Each token is the exact byte pair FuzzedDataProvider::consume_integral<int16_t>
+# decodes, so the mutator can splice operand corners directly into inputs.
+zero="\x00\x00"
+one="\x01\x00"
+neg_one="\xff\xff"
+int16_min="\x00\x80"
+int16_max="\xff\x7f"
+two="\x02\x00"
+neg_int16_max="\x01\x80"
