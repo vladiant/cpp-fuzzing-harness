@@ -1,0 +1,107 @@
+# fuzz-libfuzzer.yml — libFuzzer fuzzing dimension (complements upstream test_cpp_ci).
+#
+# Upstream test_cpp_ci already runs the example-based unit tests, coverage,
+# valgrind, static analysis and packaging. This workflow adds ONLY the
+# coverage-guided fuzzing dimension (design §8, non-duplication guarantee):
+#   1. libfuzzer-asan-ubsan — build all six harnesses with ASan+UBSan, run the
+#      decoder GoogleTest suite, then a short per-target libFuzzer run gated on
+#      the expected outcome (UB targets MUST crash, checked/clamped MUST stay
+#      clean). Runs happen in a scratch dir so the tracked corpus/ is never
+#      mutated (defect D-2).
+#   2. regression — deterministic, non-mutating replay of the curated
+#      corpus/regression/* reproducers; the true regression gate.
+#   3. msan-experimental — optional MSan leg, manual-dispatch only and
+#      allowed-to-fail (uninstrumented libc++ false positives, design §6.3).
+name: fuzz-libfuzzer
+
+on: [pull_request, workflow_dispatch]
+
+# Keep only the latest run per ref to conserve free-tier minutes.
+concurrency:
+  group: fuzz-libfuzzer-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  libfuzzer-asan-ubsan:
+    name: libFuzzer ASan+UBSan (build + unit tests + short run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pin clang-18 + Ninja; cmake is preinstalled on ubuntu-latest.
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang ninja-build
+
+      - name: Configure + build (preset libfuzzer-asan-ubsan)
+        run: |
+          cmake --preset libfuzzer-asan-ubsan
+          cmake --build --preset libfuzzer-asan-ubsan --parallel
+
+      # Decoder GoogleTest suite (11 tests) under ASan+UBSan (design §7.4).
+      - name: Decoder unit tests (ctest)
+        run: ctest --preset libfuzzer-asan-ubsan --output-on-failure -j"$(nproc)"
+
+      # Short, time-boxed run per target. Expected-crash (UB) targets PASS only
+      # if they crash within budget; checked/clamped PASS only if they stay
+      # clean. Every leg writes to a scratch dir (never the tracked corpus).
+      - name: Short libFuzzer run (expected-crash UB targets)
+        run: |
+          set -e
+          for t in simple_calc_divide simple_calc_arith basic_operation operation_strategy; do
+            scripts/ci_libfuzzer_gate.sh "$t" crash 45
+          done
+
+      - name: Short libFuzzer run (expected-clean targets)
+        run: |
+          set -e
+          for t in checked_operation clamped_operation; do
+            scripts/ci_libfuzzer_gate.sh "$t" clean 30
+          done
+
+  regression:
+    name: Regression replay (deterministic UB reproducers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang ninja-build
+
+      - name: Configure + build (preset libfuzzer-asan-ubsan)
+        run: |
+          cmake --preset libfuzzer-asan-ubsan
+          cmake --build --preset libfuzzer-asan-ubsan --parallel
+
+      # -runs=0 replay of corpus/regression/<target>/ — no fuzzing, no mutation.
+      # Each UB target MUST still reproduce its catalogued UBSan finding.
+      - name: Replay curated regression seeds
+        run: |
+          set -e
+          for t in simple_calc_divide simple_calc_arith basic_operation operation_strategy; do
+            scripts/ci_regression_gate.sh "$t"
+          done
+
+  msan-experimental:
+    name: libFuzzer MSan (experimental, allowed-to-fail)
+    # Manual only: MSan needs an MSan-instrumented libc++ to avoid false
+    # positives (design §6.3). Kept out of the PR gate and never blocks.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang ninja-build
+
+      - name: Configure + build (preset libfuzzer-msan)
+        run: |
+          cmake --preset libfuzzer-msan
+          cmake --build --preset libfuzzer-msan --parallel
+
+      # Smoke run only; findings here may be libc++ false positives (expected).
+      - name: Short MSan smoke run
+        run: BUILD_DIR="${PWD}/build-msan" scripts/ci_libfuzzer_gate.sh simple_calc_divide crash 30

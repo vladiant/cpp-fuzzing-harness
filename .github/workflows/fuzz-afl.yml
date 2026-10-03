@@ -1,0 +1,83 @@
+# fuzz-afl.yml — AFL++ fuzzing dimension (CI-only; complements upstream test_cpp_ci).
+#
+# AFL++ is not installable on the clang-18 dev box (needs root), so this engine
+# is validated here only (design §7.2, NFR-2/C-3). The campaign is inherently
+# probabilistic, so it is NOT a PR gate: it runs on manual dispatch and on a
+# weekly schedule to periodically prove AFL++ rediscovers a known UB crash.
+name: fuzz-afl
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays 04:17 UTC — off-peak, once a week (free-tier friendly).
+    - cron: "17 4 * * 1"
+
+concurrency:
+  group: fuzz-afl-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  afl-asan-ubsan:
+    name: AFL++ ASan+UBSan campaign (basic_operation)
+    runs-on: ubuntu-latest
+    env:
+      TARGET: basic_operation
+    steps:
+      - uses: actions/checkout@v7
+
+      # afl++ (4.09c on 24.04) ships afl-clang-fast++ + the aflpp driver; clang
+      # and ninja are needed for the LLVM-mode compiler and the Ninja generator.
+      - name: Install AFL++ and toolchain
+        run: sudo apt-get update && sudo apt-get install -y afl++ clang ninja-build
+
+      # CI runners cannot write the default core_pattern path; point it at a bare
+      # "core" and tell AFL++ not to abort on the usual CPU-freq / crash-report
+      # environment checks it performs on bare-metal boxes.
+      - name: Prepare AFL++ runner environment
+        run: sudo bash -c 'echo core > /proc/sys/kernel/core_pattern'
+
+      - name: Configure + build (preset afl-asan-ubsan)
+        run: |
+          cmake --preset afl-asan-ubsan
+          cmake --build --preset afl-asan-ubsan --parallel
+
+      # Short -V 60s campaign seeded from the tracked corpus + int16 dictionary,
+      # writing to a scratch findings dir (tracked corpus stays read-only). ASan
+      # builds need `-m none` (no RSS cap). A UB target must yield >=1 crash.
+      - name: Run AFL++ campaign and assert a crash is found
+        run: |
+          set -euo pipefail
+          FINDINGS="$(mktemp -d)/findings"
+          export AFL_SKIP_CPUFREQ=1
+          export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+          export ASAN_OPTIONS="abort_on_error=1:halt_on_error=1:symbolize=0:detect_leaks=0:allocator_may_return_null=1"
+          export UBSAN_OPTIONS="halt_on_error=1:abort_on_error=1:print_stacktrace=0"
+
+          # AFL's own 60s wall-clock budget, wrapped in a hard timeout safety net.
+          timeout 180 afl-fuzz \
+            -i "corpus/${TARGET}" -o "${FINDINGS}" \
+            -x dictionaries/int16_boundaries.dict \
+            -m none -V 60 \
+            -- "build-afl/${TARGET}" || true
+
+          CRASH_DIR="${FINDINGS}/default/crashes"
+          CRASHES=$(find "${CRASH_DIR}" -type f -name 'id:*' 2>/dev/null | wc -l)
+          echo "AFL++ crashes discovered for ${TARGET}: ${CRASHES}"
+          echo "FINDINGS=${FINDINGS}" >> "$GITHUB_ENV"
+          if [ "${CRASHES}" -lt 1 ]; then
+            echo "::error::AFL++ found no crash for UB target ${TARGET} within budget"
+            exit 1
+          fi
+          echo "PASS: AFL++ rediscovered the UB crash for ${TARGET}"
+
+      # Preserve the discovered reproducers for inspection (debug aid, not a gate).
+      - name: Upload AFL++ findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: afl-findings-${{ env.TARGET }}
+          path: ${{ env.FINDINGS }}
+          if-no-files-found: ignore

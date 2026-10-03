@@ -60,6 +60,26 @@ compile_commands.json
 # vcpkg
 vcpkg_installed/
 
+# ---------------------------------------------------------------------------
+# Fuzzer run artifacts (defect D-2 hygiene)
+# libFuzzer/AFL++ drop reproducers and scratch output into the working tree when
+# a run is launched from the repo root. Ignore them so `git status` stays clean
+# and a careless `git add -A` can never commit a crash blob. These patterns are
+# unanchored (match in any dir) but do NOT shadow the curated, tracked seeds
+# under corpus/ and corpus/regression/ (none of those filenames use these
+# prefixes). CI additionally writes to a scratch dir so the tracked corpus/ is
+# never mutated — this is a belt-and-braces local safety net.
+crash-*
+leak-*
+timeout-*
+oom-*
+slow-unit-*
+# AFL++ output / findings directories and its scratch input file
+findings-*/
+.cur_input
+# default libFuzzer fork-mode logs
+fuzz-*.log
+
 # debug information files
 *.dwo
 

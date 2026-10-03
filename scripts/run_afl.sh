@@ -28,6 +28,13 @@ DICT_ARGS=()
 [[ -f "${ROOT}/dictionaries/int16_boundaries.dict" ]] && \
   DICT_ARGS+=("-x" "${ROOT}/dictionaries/int16_boundaries.dict")
 
-exec afl-fuzz -i "${ROOT}/corpus/${TARGET}" -o "${ROOT}/findings-${TARGET}" \
+# D-2 hygiene: AFL++ reads the seed corpus (-i) read-only, so the tracked corpus
+# is never mutated; only the findings dir is written. Default it to findings-*/
+# (gitignored); override with FUZZ_OUTPUT_DIR (e.g. a CI scratch dir).
+OUTDIR="${FUZZ_OUTPUT_DIR:-${ROOT}/findings-${TARGET}}"
+mkdir -p "${OUTDIR}"
+echo "AFL++ findings dir: ${OUTDIR}" >&2
+
+exec afl-fuzz -i "${ROOT}/corpus/${TARGET}" -o "${OUTDIR}" \
      "${DICT_ARGS[@]}" "${@:--V 60}" \
      -- "${BUILD}/${TARGET}"
