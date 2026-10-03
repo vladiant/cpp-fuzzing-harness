@@ -1,9 +1,10 @@
 # Project Status — cpp-fuzzing-harness
 
-**SDLC stage:** Documentation complete — ready for initial release.
+**SDLC stage:** Released — initial version tagged `v0.1.0`.
 **Date:** 2026-10-04
-**Intended initial version:** `0.1.0` (not yet tagged).
-**Next step:** version publish / tag `0.1.0`.
+**Version:** `0.1.0` (see `VERSION`; annotated tag `v0.1.0`).
+**Next step:** push the `v0.1.0` tag, then trigger the AFL++ CI job to
+confirm its runtime on a live GitHub Actions run.
 
 ## Summary
 
