@@ -18,7 +18,7 @@ from conan import ConanFile
 
 class CppFuzzingHarnessConan(ConanFile):
     name = "cpp-fuzzing-harness"
-    version = "0.1.0"
+    version = "0.1.1"
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps", "CMakeToolchain"
 
