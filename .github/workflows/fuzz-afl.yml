@@ -73,11 +73,31 @@ jobs:
           fi
           echo "PASS: AFL++ rediscovered the UB crash for ${TARGET}"
 
+      # AFL++ names crash/queue files with colons (e.g. `id:000000,sig:06,...`),
+      # which upload-artifact@v4 rejects as invalid (NTFS-illegal chars). Package
+      # the findings dir into a single tarball first so those names survive
+      # *inside* the archive and the uploaded path itself is a valid filename.
+      # `if: always()` mirrors the upload (runs even if the campaign step failed);
+      # guarding on the findings dir keeps a genuinely empty run from hard-failing.
+      - name: Package AFL++ findings
+        if: always()
+        run: |
+          set -euo pipefail
+          ARCHIVE="${RUNNER_TEMP}/afl-findings-${TARGET}.tgz"
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
+          if [ -n "${FINDINGS:-}" ] && [ -d "${FINDINGS}" ]; then
+            tar -czf "${ARCHIVE}" -C "$(dirname "${FINDINGS}")" "$(basename "${FINDINGS}")"
+            echo "Packaged findings into ${ARCHIVE}"
+          else
+            echo "No findings dir to package (empty/absent run); skipping tarball."
+          fi
+
       # Preserve the discovered reproducers for inspection (debug aid, not a gate).
+      # Upload the single tarball (valid filename) rather than the raw dir.
       - name: Upload AFL++ findings
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: afl-findings-${{ env.TARGET }}
-          path: ${{ env.FINDINGS }}
+          path: ${{ env.ARCHIVE }}
           if-no-files-found: ignore
