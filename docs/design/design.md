@@ -98,7 +98,8 @@ cpp-fuzzing-harness/
 │   ├── basic_operation/
 │   ├── checked_operation/
 │   ├── clamped_operation/
-│   └── operation_strategy/
+│   ├── operation_strategy/
+│   └── regression/                    # curated reproducers for deterministic replay (FR-18)
 ├── dictionaries/
 │   ├── int16_boundaries.dict          # FR-16
 │   └── operations.dict
@@ -108,13 +109,19 @@ cpp-fuzzing-harness/
 ├── scripts/
 │   ├── run_libfuzzer.sh               # configure+build+run one target (libFuzzer)
 │   ├── run_afl.sh                     # configure+build+run one target (AFL++, CI)
-│   └── reproduce.sh                   # replay a persisted crash (FR-17)
+│   ├── reproduce.sh                   # replay a persisted crash (FR-17)
+│   ├── ci_libfuzzer_gate.sh           # CI helper: time-boxed libFuzzer PR gate
+│   └── ci_regression_gate.sh          # CI helper: deterministic regression replay gate
 ├── docs/
 │   ├── requirements/srs.md
-│   └── design/design.md               # this document
+│   ├── design/design.md               # this document
+│   └── testing/                       # QA test report (cpp-fuzzing-harness-test-report.md)
 └── .github/
     └── workflows/
-        └── fuzz.yml                   # libFuzzer job (ubuntu) + AFL++ job (ubuntu+sudo)
+        ├── fuzz-libfuzzer.yml         # PR gate: libFuzzer ASan+UBSan build + decoder ctest
+        │                              #   + short time-boxed libFuzzer run + regression replay
+        │                              #   + optional allowed-to-fail MSan leg (PR + dispatch)
+        └── fuzz-afl.yml               # AFL++ build/run (workflow_dispatch + weekly schedule)
 ```
 
 > **Note:** there is no local `src/` for upstream code — the code under test is populated by FetchContent into the build tree and compiled by `samplelib_fuzz` (see §4.2). This keeps the repo free of vendored copies (FR-20, NFR-5).
@@ -563,7 +570,7 @@ ctest --test-dir build-libfuzzer --output-on-failure -R operand_decoder
 | Valgrind/coverage/CodeQL/format/tidy/packaging | Provided upstream | **Not duplicated** (OOS-2) |
 | Platforms | ubuntu/macos/windows | Linux/clang-18 only this iteration (OOS-6) |
 
-**Non-duplication guarantee:** We consume upstream read-only and add only the fuzzing dimension. Our CI (`fuzz.yml`) runs *only* fuzz jobs; it does not re-run upstream's unit tests, coverage, or static analysis. The design surface (this doc) explicitly excludes those targets by using `FetchContent_Populate` (not `MakeAvailable`), so upstream's CI-related targets never enter our graph.
+**Non-duplication guarantee:** We consume upstream read-only and add only the fuzzing dimension. Our CI runs *only* fuzz jobs; it does not re-run upstream's unit tests, coverage, or static analysis. During implementation the originally-planned single `fuzz.yml` was split into two per-engine workflows — `fuzz-libfuzzer.yml` (the pull-request gate: ASan+UBSan build + decoder ctest + time-boxed libFuzzer run + deterministic regression replay, plus an optional allowed-to-fail MSan leg) and `fuzz-afl.yml` (AFL++ build/run on `workflow_dispatch` + a weekly schedule) — so the two engines never block the same PR and keep clean separation. The design surface (this doc) still explicitly excludes upstream's non-fuzz targets by using `FetchContent_Populate` (not `MakeAvailable`), so upstream's CI-related targets never enter our graph.
 
 ---
 
